@@ -73,4 +73,13 @@ lazy val it = (project in file("modules/it"))
   .settings(commonSettings: _*)
   .dependsOn(core)
 
+lazy val docs = project
+  .in(file("docs"))
+  .settings(
+    mdocIn := file("modules/docs"),
+    mdocOut := file("target/docs"),
+    mdocVariables := Map("VERSION" -> version.value),
+  ).dependsOn(core)
+  .enablePlugins(MdocPlugin)
+
 addCommandAlias("runLinter", ";scalafixAll --rules OrganizeImports")
