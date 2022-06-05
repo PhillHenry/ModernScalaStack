@@ -3,10 +3,10 @@ package uk.co.odinconsultants.mss
 import cats.effect.{IO, IOApp}
 
 object HelloWorld extends IOApp.Simple {
-  val helloWorld: IO[String] = IO {
-    val msg = "Hello world"
-    println(msg)
-    msg
+  val HelloWorld = "Hello world"
+  val printingHelloWorld: IO[String] = IO {
+    println(HelloWorld)
+    HelloWorld
   }
-  def run: IO[Unit] = helloWorld.void
+  def run: IO[Unit] = printingHelloWorld.void
 }
