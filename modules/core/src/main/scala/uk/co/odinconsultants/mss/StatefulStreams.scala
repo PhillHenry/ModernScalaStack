@@ -14,18 +14,16 @@ object StatefulStreams {
     old     <- ref.get
     count   = update(old, word)
     _       <- IO.println(word)
-    _       <- ref.update(old => count)
+    _       <- ref.update(_ => count)
   } yield count
 
   def orderedStream(xs: List[String]): Stream[IO, WordCount] = {
-    val initial: IO[Ref[IO, WordCount]] = Ref.of[IO, WordCount](Map.empty[String, Int])
+    val initial: IO[Ref[IO, WordCount]] = Ref[IO].of(Map.empty[String, Int])
     for {
       ref     <- Stream.eval(initial)
       word    <- Stream.emits(xs)
       result  <- Stream.eval(updateIO(ref, word))
-    } yield {
-      result
-    }
+    } yield result
   }
 
 }
