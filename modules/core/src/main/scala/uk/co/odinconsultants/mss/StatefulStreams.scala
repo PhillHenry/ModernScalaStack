@@ -11,10 +11,9 @@ object StatefulStreams {
   def update(old: WordCount, word: String): WordCount = old + (word -> (old.getOrElse(word, 0) + 1))
 
   def updateIO(ref: Ref[IO, WordCount], word: String): IO[WordCount] = for {
-    old     <- ref.get
-    count   = update(old, word)
     _       <- IO.println(word)
-    _       <- ref.update(_ => count)
+    _       <- ref.update(old => update(old, word))
+    count   <- ref.get
   } yield count
 
   def orderedStream(xs: List[String]): Stream[IO, WordCount] = {
