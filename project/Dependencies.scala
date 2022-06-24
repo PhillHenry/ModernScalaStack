@@ -4,7 +4,7 @@ import org.portablescala.sbtplatformdeps.PlatformDepsPlugin.autoImport._
 object Dependencies {
 
   object V {
-    val cats          = "2.7.0"
+    val cats          = "2.8.0"
     val catsEffect    = "3.3.12"
     val circe         = "0.14.2"
     val ciris         = "2.3.2"
@@ -37,10 +37,11 @@ object Dependencies {
 
     def http4s(artifact: String): ModuleID = "org.http4s" %% s"http4s-$artifact" % V.http4s
 
-    val cats       = "org.typelevel" %% "cats-core"   % V.cats
-    val catsEffect = "org.typelevel" %% "cats-effect" % V.catsEffect
-    val fs2Core    = "co.fs2"        %% "fs2-core"    % V.fs2Core
-    val kittens    = "org.typelevel" %% "kittens"     % V.kittens
+    val cats       = "org.typelevel" %% "cats-core"           % V.cats
+    val catsEffect = "org.typelevel" %% "cats-effect"         % V.catsEffect
+    val fs2Core    = "co.fs2"        %% "fs2-core"            % V.fs2Core
+    val kittens    = "org.typelevel" %% "kittens"             % V.kittens
+    val testkit    = "org.typelevel" %% "cats-effect-testkit" % V.catsEffect % Test
 
     val cirisCore    = "is.cir" %% "ciris"         % V.ciris
     val cirisRefined = "is.cir" %% "ciris-refined" % V.ciris

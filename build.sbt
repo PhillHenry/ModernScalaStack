@@ -21,6 +21,7 @@ val commonSettings = List(
   testFrameworks += new TestFramework("weaver.framework.CatsEffect"),
   libraryDependencies ++= Seq(
     Libraries.cats,
+    Libraries.testkit,
     Libraries.catsEffect,
     Libraries.circeCore.value,
     Libraries.circeParser.value,
