@@ -20,6 +20,14 @@ object DockerMain {
       .build()
 
     val dockerClient = DockerClientImpl.getInstance(config, httpClient)
-    println(dockerClient.pingCmd().exec())
+    println(
+      dockerClient.pingCmd().exec()
+    ) // bizarrely, returns null if successful - see PingCmdExec.exec()
+    import scala.jdk.CollectionConverters.*
+    for {
+      image <- dockerClient.listImagesCmd().exec().toArray()
+    } yield println(image)
+    println("Press any key to exit...")
+    scala.io.StdIn.readLine()
   }
 }
