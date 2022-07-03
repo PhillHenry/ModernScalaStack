@@ -9,8 +9,7 @@ object DockerMain {
   def main(args: Array[String]): Unit = {
     val config     = DefaultDockerClientConfig
       .createDefaultConfigBuilder()
-      .withDockerHost("tcp://172.17.0.1:8081")
-      .withDockerTlsVerify(false)
+      .withDockerHost("unix:///var/run/docker.sock")
       .build()
     val httpClient = new ApacheDockerHttpClient.Builder()
       .dockerHost(config.getDockerHost())
