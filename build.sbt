@@ -10,7 +10,7 @@ ThisBuild / scalafixDependencies += Libraries.organizeImports
 
 ThisBuild / resolvers += Resolver.sonatypeRepo("snapshots")
 
-Compile / run / fork := true
+Compile / run / fork           := true
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
 Global / semanticdbEnabled    := true // for metals
@@ -40,20 +40,22 @@ val commonSettings = List(
     Libraries.redis4catsEffects,
     Libraries.refinedCore.value,
     Libraries.refinedCats.value,
-    Libraries.monocleLaw       % Test,
-    Libraries.scalacheck       % Test,
-    Libraries.weaverCats       % Test,
-    Libraries.weaverDiscipline % Test,
-    Libraries.weaverScalaCheck % Test
-  )
+    Libraries.monocleLaw          % Test,
+    Libraries.scalacheck          % Test,
+    Libraries.weaverCats          % Test,
+    Libraries.weaverDiscipline    % Test,
+    Libraries.weaverScalaCheck    % Test,
+    Libraries.dockerJava          % Test,
+    Libraries.dockerJavaTransport % Test,
+  ),
 )
 
 def dockerSettings(name: String) = List(
   Docker / packageName := s"modernstack-$name",
   dockerBaseImage      := "jdk17-curl:latest",
   dockerExposedPorts ++= List(8080),
-  makeBatScripts     := Nil,
-  dockerUpdateLatest := true
+  makeBatScripts       := Nil,
+  dockerUpdateLatest   := true,
 )
 
 lazy val root = (project in file("."))
@@ -77,10 +79,11 @@ lazy val it = (project in file("modules/it"))
 lazy val docs = project
   .in(file("docs"))
   .settings(
-    mdocIn := file("modules/docs"),
-    mdocOut := file("target/docs"),
+    mdocIn        := file("modules/docs"),
+    mdocOut       := file("target/docs"),
     mdocVariables := Map("VERSION" -> version.value),
-  ).dependsOn(core)
+  )
+  .dependsOn(core)
   .enablePlugins(MdocPlugin)
 
 addCommandAlias("runLinter", ";scalafixAll --rules OrganizeImports")

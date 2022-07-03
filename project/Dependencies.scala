@@ -30,6 +30,8 @@ object Dependencies {
     val weaver     = "0.7.12"
 
     val organizeImports = "0.6.0"
+
+    val dockerJava = "3.2.13"
   }
 
   object Libraries {
@@ -91,6 +93,10 @@ object Dependencies {
 
     // scalafix rules
     val organizeImports = "com.github.liancheng" %% "organize-imports" % V.organizeImports
+
+    val dockerJava          = "com.github.docker-java" % "docker-java-core" % V.dockerJava
+    val dockerJavaTransport =
+      "com.github.docker-java" % "docker-java-transport-httpclient5" % V.dockerJava
   }
 
 }
