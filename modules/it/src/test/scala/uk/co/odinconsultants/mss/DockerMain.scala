@@ -34,21 +34,26 @@ object DockerMain {
       image <- dockerClient.listImagesCmd().exec().toArray()
     } yield println(s"Image: $image")
 
-    val pulsar         = "apachepulsar/pulsar:2.10.0"
-    import com.github.dockerjava.api.async.ResultCallback
-    import com.github.dockerjava.api.command.PullImageResultCallback
-//    println(dockerClient.pullImageCmd(pulsar).exec(new PullImageResultCallback() {}))
-//    println(dockerClient.createContainerCmd(pulsar).exec())
-//    println(dockerClient.execCreateCmd(pulsar).exec())  // no errors for "apachepulsar/pulsar:2.10.0" but nothing happens
-//    dockerClient.startContainerCmd(pulsar).exec()
-    val pulsarResponse = startContainer(dockerClient, pulsar)
-    dockerClient.commitCmd(pulsarResponse.getId)
-//    val response       = startSelenium(dockerClient)
-//    dockerClient.commitCmd(response.getId)
+    val pulsarResponse = startContainer(dockerClient, "apachepulsar/pulsar:2.10.0")
+    val id: String     = pulsarResponse.getId
 
+    log(dockerClient, id)
+
+    listContainers(dockerClient)
+
+    dockerClient.close()
+  }
+
+  private def listContainers(dockerClient: DockerClient) =
+    for {
+      container <- dockerClient.listContainersCmd().exec().toArray()
+    } yield println(s"Containers: ${container}")
+
+  private def log(dockerClient: DockerClient, id: String) = {
+    import com.github.dockerjava.api.async.ResultCallback
     import com.github.dockerjava.api.model.Frame
     dockerClient
-      .logContainerCmd(pulsarResponse.getId)
+      .logContainerCmd(id)
       .withStdOut(true)
       .exec(new ResultCallback[Frame] {
         override def onError(throwable: Throwable): Unit = throwable.printStackTrace()
@@ -57,21 +62,7 @@ object DockerMain {
         override def onComplete(): Unit                  = println("Complete")
         override def close(): Unit                       = println("close")
       })
-
-    var i = 0
-    while (i < 5) {
-      for {
-        container <- dockerClient.listContainersCmd().exec().toArray()
-      } yield println(s"Containers: ${container}")
-      Thread.sleep(2000)
-      i = i + 1
-    }
-
-//    println("Press any key to exit...")
-    dockerClient.close()
-//    scala.io.StdIn.readLine()
   }
-
   import com.github.dockerjava.api.command.CreateContainerResponse
   import com.github.dockerjava.api.model.ExposedPort
   import com.github.dockerjava.api.model.Ports
@@ -102,22 +93,4 @@ object DockerMain {
     container
   }
 
-  def startSelenium(dockerClient: DockerClient): CreateContainerResponse = {
-    val tcp4444      = ExposedPort.tcp(4444)
-    val portBindings = new Ports()
-    portBindings.bind(tcp4444, Ports.Binding.bindPort(4444))
-
-    val cmd: CreateContainerCmd = dockerClient
-      .createContainerCmd("selenium/hub")
-//      .withName("myname")
-      .withImage("selenium/hub:2.53.0")
-      .withExposedPorts(tcp4444)
-      .withAttachStderr(false)
-      .withAttachStdin(false)
-      .withAttachStdout(false)
-    cmd.getHostConfig.withPortBindings(portBindings)
-
-    val response = cmd.exec()
-    response
-  }
 }
