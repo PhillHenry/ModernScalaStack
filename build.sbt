@@ -47,7 +47,6 @@ val commonSettings = List(
     Libraries.weaverScalaCheck    % Test,
     Libraries.dockerJava          % Test,
     Libraries.dockerJavaTransport % Test,
-    "ch.qos.logback"              % "logback-classic" % "1.2.11" % Test,
   ),
 )
 
@@ -76,6 +75,11 @@ lazy val core = (project in file("modules/core"))
 lazy val it = (project in file("modules/it"))
   .settings(commonSettings: _*)
   .dependsOn(core)
+  .settings(
+    libraryDependencies ++= List(
+      "ch.qos.logback" % "logback-classic" % "1.2.11" % Test
+    )
+  )
 
 lazy val docs = project
   .in(file("docs"))
