@@ -2,6 +2,7 @@ package uk.co.odinconsultants.mss
 
 import com.github.dockerjava.api.DockerClient
 import com.github.dockerjava.api.command.CreateContainerCmd
+import com.github.dockerjava.api.model.Container
 import com.github.dockerjava.core.DefaultDockerClientConfig
 import com.github.dockerjava.httpclient5.ApacheDockerHttpClient
 
@@ -34,7 +35,7 @@ object DockerMain {
       image <- dockerClient.listImagesCmd().exec().toArray()
     } yield println(s"Image: $image")
 
-    val pulsarResponse = startContainer(dockerClient, "apachepulsar/pulsar:2.10.0")
+    val pulsarResponse = startContainer(dockerClient, "bitnami/kafka:latest")
     val id: String     = pulsarResponse.getId
 
     log(dockerClient, id)
@@ -46,7 +47,12 @@ object DockerMain {
 
   private def listContainers(dockerClient: DockerClient) =
     for {
-      container <- dockerClient.listContainersCmd().exec().toArray()
+      container <- dockerClient
+                     .listContainersCmd()
+                     .exec()
+                     .toArray()
+                     .map(_.asInstanceOf[Container])
+                     .map(x => s"id = ${x.getId}, image = ${x.getImage}")
     } yield println(s"Containers: ${container}")
 
   private def log(dockerClient: DockerClient, id: String) = {
@@ -71,9 +77,9 @@ object DockerMain {
     */
   def startContainer(dockerClient: DockerClient, image: String): CreateContainerResponse = {
 
-    val tcp4444: ExposedPort = ExposedPort.tcp(4444)
+    val tcp4444: ExposedPort = ExposedPort.tcp(9092)
     val portBindings         = new Ports
-    portBindings.bind(tcp4444, Ports.Binding.bindPort(4444))
+    portBindings.bind(tcp4444, Ports.Binding.bindPort(9092))
 
 // create container from image
     val container: CreateContainerResponse = dockerClient
@@ -81,8 +87,9 @@ object DockerMain {
       .withAttachStdin(false)
       .withAttachStdout(true)
       .withAttachStderr(false)
+      .withEnv("KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181", "ALLOW_PLAINTEXT_LISTENER=yes")
 //      .withTty(true)
-      .withCmd("/bin/bash", "-c", "/pulsar/bin/pulsar standalone")
+      .withCmd("/bin/bash", "-c", "/opt/bitnami/scripts/kafka/entrypoint.sh /run.sh")
 //      .withExposedPorts(tcp4444)
 //      .withHostConfig(newHostConfig.withPortBindings(portBindings))
 //      .withName("selenium-hub")
