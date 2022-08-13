@@ -40,6 +40,7 @@ val commonSettings = List(
     Libraries.redis4catsEffects,
     Libraries.refinedCore.value,
     Libraries.refinedCats.value,
+    Libraries.ip4s,
     Libraries.monocleLaw          % Test,
     Libraries.scalacheck          % Test,
     Libraries.weaverCats          % Test,

@@ -1,7 +1,7 @@
 package uk.co.odinconsultants.mss
 
 import com.github.dockerjava.api.DockerClient
-import com.github.dockerjava.api.command.CreateContainerCmd
+import com.github.dockerjava.api.command.{CreateContainerCmd, CreateContainerResponse}
 import com.github.dockerjava.api.model.{Container, Link}
 import com.github.dockerjava.core.DefaultDockerClientConfig
 import com.github.dockerjava.httpclient5.ApacheDockerHttpClient
@@ -13,20 +13,8 @@ import java.io.Closeable
 
 object DockerMain {
   def main(args: Array[String]): Unit = {
-    val config     = DefaultDockerClientConfig
-      .createDefaultConfigBuilder()
-      .withDockerHost("unix:///var/run/docker.sock")
-      .withApiVersion("1.41")
-      .build()
-    val httpClient = new ApacheDockerHttpClient.Builder()
-      .dockerHost(config.getDockerHost())
-      .sslConfig(config.getSSLConfig())
-      .maxConnections(100)
-      .connectionTimeout(Duration.ofSeconds(30))
-      .responseTimeout(Duration.ofSeconds(45))
-      .build()
-
-    val dockerClient = DockerClientImpl.getInstance(config, httpClient)
+    val config: DefaultDockerClientConfig = buildConfig("unix:///var/run/docker.sock", "1.41")
+    val dockerClient: DockerClient        = DockerClientImpl.getInstance(config, buildClient(config))
     println(
       dockerClient.pingCmd().exec()
     ) // bizarrely, returns null if successful - see PingCmdExec.exec()
@@ -35,14 +23,32 @@ object DockerMain {
       image <- dockerClient.listImagesCmd().exec().toArray()
     } yield println(s"Image: $image")
 
-    val zookeeperResponse = startZookeeper(dockerClient)
-    val kafkaResponse     = startKafka(dockerClient)
+    val zookeeperResponse: CreateContainerResponse = startZookeeper(dockerClient)
+    val kafkaResponse: CreateContainerResponse     = startKafka(dockerClient)
     log(dockerClient, kafkaResponse.getId)
 
     listContainers(dockerClient)
 
     dockerClient.close()
   }
+
+  def buildClient(config: DefaultDockerClientConfig): ApacheDockerHttpClient =
+    new ApacheDockerHttpClient.Builder()
+      .dockerHost(config.getDockerHost)
+      .sslConfig(config.getSSLConfig)
+      .maxConnections(100)
+      .connectionTimeout(Duration.ofSeconds(30))
+      .responseTimeout(Duration.ofSeconds(45))
+      .build()
+
+  def buildConfig(
+      dockerHost: String,
+      apiVersion: String,
+  ): DefaultDockerClientConfig = DefaultDockerClientConfig
+    .createDefaultConfigBuilder()
+    .withDockerHost(dockerHost)
+    .withApiVersion(apiVersion)
+    .build()
 
   private def listContainers(dockerClient: DockerClient) =
     for {
@@ -51,8 +57,8 @@ object DockerMain {
                      .exec()
                      .toArray()
                      .map(_.asInstanceOf[Container])
-                     .map(x => s"id = ${x.getId}, image = ${x.getImage}")
-    } yield println(s"Containers: ${container}")
+                     .map((x: Container) => s"id = ${x.getId}, image = ${x.getImage}")
+    } yield println(s"Containers: $container")
 
   private def log(dockerClient: DockerClient, id: String) = {
     import com.github.dockerjava.api.async.ResultCallback

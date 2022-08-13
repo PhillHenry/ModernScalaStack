@@ -1,4 +1,4 @@
-import sbt._
+import sbt.{Def, _}
 import org.portablescala.sbtplatformdeps.PlatformDepsPlugin.autoImport._
 
 object Dependencies {
@@ -32,10 +32,12 @@ object Dependencies {
     val organizeImports = "0.6.0"
 
     val dockerJava = "3.2.13"
+    val ip4s       = "3.1.3"
   }
 
   object Libraries {
-    def circe(artifact: String) = Def.setting("io.circe" %%% s"circe-$artifact" % V.circe)
+    def circe(artifact: String): Def.Initialize[sbt.ModuleID] =
+      Def.setting("io.circe" %%% s"circe-$artifact" % V.circe)
 
     def http4s(artifact: String): ModuleID = "org.http4s" %% s"http4s-$artifact" % V.http4s
 
@@ -97,6 +99,9 @@ object Dependencies {
     val dockerJava          = "com.github.docker-java" % "docker-java-core" % V.dockerJava
     val dockerJavaTransport =
       "com.github.docker-java" % "docker-java-transport-httpclient5" % V.dockerJava
+
+    val ip4s = "com.comcast" %% "ip4s-core" % V.ip4s
+
   }
 
 }
