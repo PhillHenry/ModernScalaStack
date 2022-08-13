@@ -15,5 +15,12 @@ object Docker extends IOApp.Simple {
     DockerClientImpl.getInstance(config, httpClient)
   }
 
-  def run: IO[Unit] = client("unix:///var/run/docker.sock", "1.41") >> IO.unit
+  def run: IO[Unit] = {
+    val host       = "unix:///var/run/docker.sock"
+    val apiVersion = "1.41"
+    client(host, apiVersion).handleErrorWith { (t: Throwable) =>
+      IO.println(s"Could not connect to host $host using API version $apiVersion") *>
+        IO.raiseError(t)
+    } >> IO.unit
+  }
 }
