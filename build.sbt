@@ -3,7 +3,7 @@ import Dependencies._
 ThisBuild / scalaVersion     := "3.1.1"
 ThisBuild / version          := "0.1.0"
 ThisBuild / organization     := "uk.co.odinconsultants"
-ThisBuild / organizationName := "ModernStack"
+ThisBuild / organizationName := "OdinConsultants"
 
 ThisBuild / evictionErrorLevel := Level.Warn
 ThisBuild / scalafixDependencies += Libraries.organizeImports
@@ -52,7 +52,7 @@ val commonSettings = List(
 )
 
 def dockerSettings(name: String) = List(
-  Docker / packageName := s"modernstack-$name",
+  Docker / packageName := organizationName + "-" + name,
   dockerBaseImage      := "jdk17-curl:latest",
   dockerExposedPorts ++= List(8080),
   makeBatScripts       := Nil,

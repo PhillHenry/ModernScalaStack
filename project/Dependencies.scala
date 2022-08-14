@@ -37,9 +37,9 @@ object Dependencies {
 
   object Libraries {
     def circe(artifact: String): Def.Initialize[sbt.ModuleID] =
-      Def.setting("io.circe" %%% s"circe-$artifact" % V.circe)
+      Def.setting("io.circe" %%% ("circe-" + artifact) % V.circe)
 
-    def http4s(artifact: String): ModuleID = "org.http4s" %% s"http4s-$artifact" % V.http4s
+    def http4s(artifact: String): ModuleID = "org.http4s" %% ("http4s-" + artifact) % V.http4s
 
     val cats       = "org.typelevel" %% "cats-core"           % V.cats
     val catsEffect = "org.typelevel" %% "cats-effect"         % V.catsEffect
