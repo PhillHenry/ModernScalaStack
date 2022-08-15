@@ -12,6 +12,12 @@ import com.github.dockerjava.core.DockerClientImpl
 import java.io.Closeable
 
 object DockerMain {
+
+  /** Delete everything with:
+    * <pre>
+    * docker stop $(docker ps -a -q) ; docker rm $(docker ps -a -q)
+    * </pre>
+    */
   def main(args: Array[String]): Unit = {
     val config: DefaultDockerClientConfig = buildConfig("unix:///var/run/docker.sock", "1.41")
     val dockerClient: DockerClient        = DockerClientImpl.getInstance(config, buildClient(config))
@@ -27,10 +33,26 @@ object DockerMain {
     val kafkaResponse: CreateContainerResponse     = startKafka(dockerClient)
     log(dockerClient, kafkaResponse.getId)
 
-    listContainers(dockerClient)
+    stopContainerWithId(dockerClient, zookeeperResponse.getId)
+    stopContainerWithId(dockerClient, kafkaResponse.getId)
+    deleteContainerWithId(dockerClient, zookeeperResponse.getId)
+    deleteContainerWithId(dockerClient, kafkaResponse.getId)
 
     dockerClient.close()
   }
+
+  def stopContainer(dockerClient: DockerClient, container: Container): Unit = {
+    val id: String = container.getId
+    stopContainerWithId(dockerClient, id)
+  }
+
+  def stopContainerWithId(dockerClient: DockerClient, id: String): Unit =
+    println(s"Stopping container with ID $id")
+    dockerClient.stopContainerCmd(id).exec()
+
+  def deleteContainerWithId(dockerClient: DockerClient, id: String): Unit =
+    println(s"Stopping container with ID $id")
+    dockerClient.removeContainerCmd(id).exec()
 
   def buildClient(config: DefaultDockerClientConfig): ApacheDockerHttpClient =
     new ApacheDockerHttpClient.Builder()
@@ -50,15 +72,18 @@ object DockerMain {
     .withApiVersion(apiVersion)
     .build()
 
-  private def listContainers(dockerClient: DockerClient) =
-    for {
+  private def listContainers(dockerClient: DockerClient): List[Container] =
+    val containers: Array[Container] = for {
       container <- dockerClient
                      .listContainersCmd()
                      .exec()
                      .toArray()
                      .map(_.asInstanceOf[Container])
-                     .map((x: Container) => s"id = ${x.getId}, image = ${x.getImage}")
-    } yield println(s"Containers: $container")
+    } yield {
+      println(s"id = ${container.getId}, image = ${container.getImage}")
+      container
+    }
+    containers.toList
 
   private def log(dockerClient: DockerClient, id: String) = {
     import com.github.dockerjava.api.async.ResultCallback
