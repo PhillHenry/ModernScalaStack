@@ -5,6 +5,7 @@ opaque type ConnectionURL = String
 opaque type ContainerId   = String
 opaque type Command       = String
 type Environment          = List[String]
+type Mapping[T]           = List[(T, T)]
 
 object ConnectionURL:
   def apply(x: String): ConnectionURL = x

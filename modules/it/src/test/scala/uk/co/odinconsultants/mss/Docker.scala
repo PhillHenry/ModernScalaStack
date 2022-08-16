@@ -23,16 +23,16 @@ object Docker extends IOApp.Simple {
     stopContainerWithId(client, containerId)
   }
 
-  val host       = "unix:///var/run/docker.sock"
-  val apiVersion = "1.41"
+  val client: IO[DockerClient] = {
+    val host       = "unix:///var/run/docker.sock"
+    val apiVersion = "1.41"
+    initializeClient(host, apiVersion).handleErrorWith { (t: Throwable) =>
+      IO.println(s"Could not connect to host $host using API version $apiVersion") *>
+        IO.raiseError(t)
+    }
+  }
 
   def run: IO[Unit] =
-//    buildFree.foldMap(interpret())
-    val client: IO[DockerClient] = initializeClient(host, apiVersion).handleErrorWith {
-      (t: Throwable) =>
-        IO.println(s"Could not connect to host $host using API version $apiVersion") *>
-          IO.raiseError(t)
-    }
     for {
       client <- client
       _      <- interpret(client, buildFree)
@@ -45,14 +45,14 @@ object Docker extends IOApp.Simple {
     tree.foldMap(requestToIO)
 
   def buildFree: Free[ManagerRequest, Unit] = for {
-    container <- Free.liftF(
+    zookeeper <- Free.liftF(
                    StartRequest(
                      ImageName("docker.io/bitnami/zookeeper:3.8"),
                      Command("/bin/bash -c /entrypoint.sh /opt/bitnami/scripts/zookeeper/run.sh"),
                      List("ALLOW_ANONYMOUS_LOGIN=yes"),
                    )
                  )
-    stop      <- Free.liftF(StopRequest(container))
+    stop      <- Free.liftF(StopRequest(zookeeper))
   } yield {}
 
   def interpreter[A](client: DockerClient): ManagerRequest[A] => IO[A] = {
