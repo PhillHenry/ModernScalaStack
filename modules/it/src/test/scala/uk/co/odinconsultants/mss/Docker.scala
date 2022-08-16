@@ -12,6 +12,7 @@ import cats.arrow.FunctionK
 object Docker extends IOApp.Simple {
 
   opaque type ApiVersion = String
+  opaque type Port       = Int
 
   def initializeClient(dockerHost: String, apiVersion: ApiVersion): IO[DockerClient] = IO {
     val config: DefaultDockerClientConfig  = buildConfig(dockerHost, apiVersion)
@@ -44,20 +45,24 @@ object Docker extends IOApp.Simple {
     }
     tree.foldMap(requestToIO)
 
+  val freeZookeeper: Free[ManagerRequest, ContainerId] = Free.liftF(
+    StartRequest[Port](
+      ImageName("docker.io/bitnami/zookeeper:3.8"),
+      Command("/bin/bash -c /entrypoint.sh /opt/bitnami/scripts/zookeeper/run.sh"),
+      List("ALLOW_ANONYMOUS_LOGIN=yes"),
+      List(2181 -> 2181),
+    )
+  )
+
   def buildFree: Free[ManagerRequest, Unit] = for {
-    zookeeper <- Free.liftF(
-                   StartRequest(
-                     ImageName("docker.io/bitnami/zookeeper:3.8"),
-                     Command("/bin/bash -c /entrypoint.sh /opt/bitnami/scripts/zookeeper/run.sh"),
-                     List("ALLOW_ANONYMOUS_LOGIN=yes"),
-                   )
-                 )
+    zookeeper <- freeZookeeper
     stop      <- Free.liftF(StopRequest(zookeeper))
   } yield {}
 
   def interpreter[A](client: DockerClient): ManagerRequest[A] => IO[A] = {
-    case StartRequest(image, cmd, env) => start(client, image, cmd, env)
-    case StopRequest(containerId)      => IO(stopContainerWithId(client, containerId.toString))
+    case StartRequest(image, cmd, env, maps) =>
+      start(client, image, cmd, env, maps.asInstanceOf[Mapping[Port]])
+    case StopRequest(containerId)            => IO(stopContainerWithId(client, containerId.toString))
   }
 
   def start(
@@ -65,11 +70,9 @@ object Docker extends IOApp.Simple {
       image: ImageName,
       command: Command,
       environment: Environment,
+      portMappings: Mapping[Port],
   ): IO[ContainerId] = IO {
     import scala.jdk.CollectionConverters.*
-    val tcp2181: ExposedPort = ExposedPort.tcp(2181)
-    val portBindings         = new Ports
-    portBindings.bind(tcp2181, Ports.Binding.bindPort(2181))
 
     val config: CreateContainerCmd = dockerClient
       .createContainerCmd(image.toString)
@@ -79,8 +82,16 @@ object Docker extends IOApp.Simple {
       .withEnv(environment.asJava)
       .withCmd(command.toString.split(" ").toList.asJava)
 
+    val portBindings                       = new Ports
+    val exposedPorts                       = for {
+      (container, host) <- portMappings
+    } yield {
+      val exposed: ExposedPort = ExposedPort.tcp(container)
+      portBindings.bind(exposed, Ports.Binding.bindPort(host))
+      exposed
+    }
     val container: CreateContainerResponse = config
-      .withExposedPorts(tcp2181)
+      .withExposedPorts(exposedPorts.asJava)
       .withHostConfig(config.getHostConfig.withPortBindings(portBindings))
       .exec
 
