@@ -7,6 +7,7 @@ import com.github.dockerjava.api.model.{ExposedPort, Ports}
 import com.github.dockerjava.core.{DefaultDockerClientConfig, DockerClientImpl}
 import com.github.dockerjava.httpclient5.ApacheDockerHttpClient
 import uk.co.odinconsultants.mss.DockerMain.*
+import cats.arrow.FunctionK
 
 object Docker extends IOApp.Simple {
 
@@ -25,27 +26,35 @@ object Docker extends IOApp.Simple {
   val host       = "unix:///var/run/docker.sock"
   val apiVersion = "1.41"
 
-  def run: IO[Unit] = {
-
-    val connect =
-      Free.liftF(ConnectRequest[DockerClient](ConnectionURL(host)))
-    val start   =
-      Free.liftF(
-        StartRequest[CreateContainerResponse](
-          ImageName(DockerMain.ZOOKEEPER_NAME),
-          Command("/bin/bash -c /entrypoint.sh /opt/bitnami/scripts/zookeeper/run.sh"),
-          List("ALLOW_ANONYMOUS_LOGIN=yes"),
-        )
-      )
-
+  def run: IO[Unit] =
+//    buildFree.foldMap(interpret())
     initializeClient(host, apiVersion).handleErrorWith { (t: Throwable) =>
       IO.println(s"Could not connect to host $host using API version $apiVersion") *>
         IO.raiseError(t)
     } >> IO.unit
-  }
 
-  def interpret(client: DockerClient): ManagerRequest[?] => IO[?] = _ match {
-    case ConnectRequest(url)           => initializeClient(url.toString, apiVersion)
+//  def interpret(client: DockerClient, tree: Free[ManagerRequest, Unit]) =
+//    val dockerInterpreter                          = interpreter(client)
+//    val requestToIO: FunctionK[ManagerRequest, IO] = new FunctionK[ManagerRequest, IO] {
+//      def apply[A](l: ManagerRequest[A]): IO[A] = l match {
+//        case StartRequest(image, cmd, env) => start(client, image, cmd, env)
+//        case StopRequest(containerId)      => IO(stopContainerWithId(client, containerId.toString))
+//      }
+//    }
+//    tree.foldMap(requestToIO)
+
+  def buildFree: Free[ManagerRequest, Unit] = for {
+    container <- Free.liftF(
+                   StartRequest[CreateContainerResponse](
+                     ImageName(DockerMain.ZOOKEEPER_NAME),
+                     Command("/bin/bash -c /entrypoint.sh /opt/bitnami/scripts/zookeeper/run.sh"),
+                     List("ALLOW_ANONYMOUS_LOGIN=yes"),
+                   )
+                 )
+    stop      <- Free.liftF(StopRequest(ContainerId(container.getId)))
+  } yield {}
+
+  def interpreter(client: DockerClient): ManagerRequest[?] => IO[?] = _ match {
     case StartRequest(image, cmd, env) => start(client, image, cmd, env)
     case StopRequest(containerId)      => IO(stopContainerWithId(client, containerId.toString))
   }
@@ -63,7 +72,6 @@ object Docker extends IOApp.Simple {
 
     val config: CreateContainerCmd = dockerClient
       .createContainerCmd(image.toString)
-      .withName(ZOOKEEPER_NAME)
       .withAttachStdin(false)
       .withAttachStdout(true)
       .withAttachStderr(false)

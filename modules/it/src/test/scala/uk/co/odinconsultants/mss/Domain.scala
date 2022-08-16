@@ -17,8 +17,6 @@ object Command:
 
 sealed abstract class ManagerRequest[A]
 
-case class ConnectRequest[A](url: ConnectionURL) extends ManagerRequest[A]
-
 case class StartRequest[A](image: ImageName, command: Command, env: Environment)
     extends ManagerRequest[A]
 
