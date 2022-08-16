@@ -28,25 +28,26 @@ object Docker extends IOApp.Simple {
 
   def run: IO[Unit] =
 //    buildFree.foldMap(interpret())
-    initializeClient(host, apiVersion).handleErrorWith { (t: Throwable) =>
-      IO.println(s"Could not connect to host $host using API version $apiVersion") *>
-        IO.raiseError(t)
-    } >> IO.unit
+    val client: IO[DockerClient] = initializeClient(host, apiVersion).handleErrorWith {
+      (t: Throwable) =>
+        IO.println(s"Could not connect to host $host using API version $apiVersion") *>
+          IO.raiseError(t)
+    }
+    for {
+      client <- client
+      _      <- interpret(client, buildFree)
+    } yield println("Started and stopped")
 
-  def interpret(client: DockerClient, tree: Free[ManagerRequest, Unit]) =
-    val dockerInterpreter                          = interpreter(client)
+  def interpret(client: DockerClient, tree: Free[ManagerRequest, Unit]): IO[Unit] =
     val requestToIO: FunctionK[ManagerRequest, IO] = new FunctionK[ManagerRequest, IO] {
-      def apply[A](l: ManagerRequest[A]): IO[A] = l match {
-        case StartRequest(image, cmd, env) => start(client, image, cmd, env)
-        case StopRequest(containerId)      => IO(stopContainerWithId(client, containerId.toString))
-      }
+      def apply[A](l: ManagerRequest[A]): IO[A] = interpreter[A](client)(l)
     }
     tree.foldMap(requestToIO)
 
   def buildFree: Free[ManagerRequest, Unit] = for {
     container <- Free.liftF(
                    StartRequest(
-                     ImageName(DockerMain.ZOOKEEPER_NAME),
+                     ImageName("docker.io/bitnami/zookeeper:3.8"),
                      Command("/bin/bash -c /entrypoint.sh /opt/bitnami/scripts/zookeeper/run.sh"),
                      List("ALLOW_ANONYMOUS_LOGIN=yes"),
                    )
@@ -54,7 +55,7 @@ object Docker extends IOApp.Simple {
     stop      <- Free.liftF(StopRequest(container))
   } yield {}
 
-  def interpreter[A](client: DockerClient): ManagerRequest[A] => IO[A] = _ match {
+  def interpreter[A](client: DockerClient): ManagerRequest[A] => IO[A] = {
     case StartRequest(image, cmd, env) => start(client, image, cmd, env)
     case StopRequest(containerId)      => IO(stopContainerWithId(client, containerId.toString))
   }
