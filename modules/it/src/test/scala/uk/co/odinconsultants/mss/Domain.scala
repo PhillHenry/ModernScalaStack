@@ -17,9 +17,9 @@ object Command:
 
 sealed abstract class ManagerRequest[A]
 
-case class StartRequest[A](image: ImageName, command: Command, env: Environment)
-    extends ManagerRequest[A]
+case class StartRequest(image: ImageName, command: Command, env: Environment)
+    extends ManagerRequest[ContainerId]
 
-case class StopRequest[A](image: ContainerId) extends ManagerRequest[A]
+case class StopRequest(image: ContainerId) extends ManagerRequest[Unit]
 
 object Domain {}

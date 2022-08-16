@@ -33,28 +33,28 @@ object Docker extends IOApp.Simple {
         IO.raiseError(t)
     } >> IO.unit
 
-//  def interpret(client: DockerClient, tree: Free[ManagerRequest, Unit]) =
-//    val dockerInterpreter                          = interpreter(client)
-//    val requestToIO: FunctionK[ManagerRequest, IO] = new FunctionK[ManagerRequest, IO] {
-//      def apply[A](l: ManagerRequest[A]): IO[A] = l match {
-//        case StartRequest(image, cmd, env) => start(client, image, cmd, env)
-//        case StopRequest(containerId)      => IO(stopContainerWithId(client, containerId.toString))
-//      }
-//    }
-//    tree.foldMap(requestToIO)
+  def interpret(client: DockerClient, tree: Free[ManagerRequest, Unit]) =
+    val dockerInterpreter                          = interpreter(client)
+    val requestToIO: FunctionK[ManagerRequest, IO] = new FunctionK[ManagerRequest, IO] {
+      def apply[A](l: ManagerRequest[A]): IO[A] = l match {
+        case StartRequest(image, cmd, env) => start(client, image, cmd, env)
+        case StopRequest(containerId)      => IO(stopContainerWithId(client, containerId.toString))
+      }
+    }
+    tree.foldMap(requestToIO)
 
   def buildFree: Free[ManagerRequest, Unit] = for {
     container <- Free.liftF(
-                   StartRequest[CreateContainerResponse](
+                   StartRequest(
                      ImageName(DockerMain.ZOOKEEPER_NAME),
                      Command("/bin/bash -c /entrypoint.sh /opt/bitnami/scripts/zookeeper/run.sh"),
                      List("ALLOW_ANONYMOUS_LOGIN=yes"),
                    )
                  )
-    stop      <- Free.liftF(StopRequest(ContainerId(container.getId)))
+    stop      <- Free.liftF(StopRequest(container))
   } yield {}
 
-  def interpreter(client: DockerClient): ManagerRequest[?] => IO[?] = _ match {
+  def interpreter[A](client: DockerClient): ManagerRequest[A] => IO[A] = _ match {
     case StartRequest(image, cmd, env) => start(client, image, cmd, env)
     case StopRequest(containerId)      => IO(stopContainerWithId(client, containerId.toString))
   }
@@ -64,7 +64,7 @@ object Docker extends IOApp.Simple {
       image: ImageName,
       command: Command,
       environment: Environment,
-  ): IO[CreateContainerResponse] = IO {
+  ): IO[ContainerId] = IO {
     import scala.jdk.CollectionConverters.*
     val tcp2181: ExposedPort = ExposedPort.tcp(2181)
     val portBindings         = new Ports
@@ -85,6 +85,6 @@ object Docker extends IOApp.Simple {
 
     // start the container
     dockerClient.startContainerCmd(container.getId).exec
-    container
+    ContainerId(container.getId)
   }
 }
