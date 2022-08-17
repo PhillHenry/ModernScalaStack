@@ -17,6 +17,7 @@ object DockerMain {
     * <pre>
     * docker stop $(docker ps -a -q) ; docker rm $(docker ps -a -q)
     * </pre>
+    * See https://stackoverflow.com/questions/43135374/how-to-create-and-start-docker-container-with-specific-port-detached-mode-using
     */
   def main(args: Array[String]): Unit = {
     val config: DefaultDockerClientConfig = buildConfig("unix:///var/run/docker.sock", "1.41")
@@ -28,15 +29,6 @@ object DockerMain {
     for {
       image <- dockerClient.listImagesCmd().exec().toArray()
     } yield println(s"Image: $image")
-
-    val zookeeperResponse: CreateContainerResponse = startZookeeper(dockerClient)
-    val kafkaResponse: CreateContainerResponse     = startKafka(dockerClient)
-    log(dockerClient, kafkaResponse.getId)
-
-    stopContainerWithId(dockerClient, zookeeperResponse.getId)
-    stopContainerWithId(dockerClient, kafkaResponse.getId)
-    deleteContainerWithId(dockerClient, zookeeperResponse.getId)
-    deleteContainerWithId(dockerClient, kafkaResponse.getId)
 
     dockerClient.close()
   }
@@ -100,64 +92,6 @@ object DockerMain {
         override def onComplete(): Unit                  = println("Complete")
         override def close(): Unit                       = println("close")
       })
-  }
-  import com.github.dockerjava.api.command.CreateContainerResponse
-  import com.github.dockerjava.api.model.ExposedPort
-  import com.github.dockerjava.api.model.Ports
-
-  /** From https://stackoverflow.com/questions/43135374/how-to-create-and-start-docker-container-with-specific-port-detached-mode-using
-    */
-  def startKafka(dockerClient: DockerClient): CreateContainerResponse = {
-    val image                = "bitnami/kafka:latest"
-    val tcp9092: ExposedPort = ExposedPort.tcp(9092)
-    val portBindings         = new Ports
-    portBindings.bind(tcp9092, Ports.Binding.bindPort(9092))
-
-    val config: CreateContainerCmd = dockerClient
-      .createContainerCmd(image)
-      .withAttachStdin(false)
-      .withAttachStdout(true)
-      .withAttachStderr(false)
-      .withEnv("KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181", "ALLOW_PLAINTEXT_LISTENER=yes")
-      .withCmd("/bin/bash", "-c", "/opt/bitnami/scripts/kafka/entrypoint.sh /run.sh")
-
-    config.getHostConfig.setLinks(new Link(ZOOKEEPER_NAME, "zookeeper"))
-// create container from image
-    val container: CreateContainerResponse = config
-      .withExposedPorts(tcp9092)
-      .withHostConfig(config.getHostConfig.withPortBindings(portBindings))
-      .exec
-
-    // start the container
-    dockerClient.startContainerCmd(container.getId).exec
-    container
-  }
-
-  val ZOOKEEPER_NAME = "my_zookeeper3"
-
-  def startZookeeper(dockerClient: DockerClient): CreateContainerResponse = {
-    val image                = "docker.io/bitnami/zookeeper:3.8"
-    val tcp2181: ExposedPort = ExposedPort.tcp(2181)
-    val portBindings         = new Ports
-    portBindings.bind(tcp2181, Ports.Binding.bindPort(2181))
-
-    val config: CreateContainerCmd = dockerClient
-      .createContainerCmd(image)
-      .withName(ZOOKEEPER_NAME)
-      .withAttachStdin(false)
-      .withAttachStdout(true)
-      .withAttachStderr(false)
-      .withEnv("ALLOW_ANONYMOUS_LOGIN=yes")
-      .withCmd("/bin/bash", "-c", "/entrypoint.sh /opt/bitnami/scripts/zookeeper/run.sh")
-
-    val container: CreateContainerResponse = config
-      .withExposedPorts(tcp2181)
-      .withHostConfig(config.getHostConfig.withPortBindings(portBindings))
-      .exec
-
-    // start the container
-    dockerClient.startContainerCmd(container.getId).exec
-    container
   }
 
 }

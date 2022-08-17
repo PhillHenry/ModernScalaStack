@@ -55,7 +55,6 @@ object Docker extends IOApp.Simple {
   )
 
   def buildFree: Free[ManagerRequest, Unit] = for {
-    ignore    <- Free.liftF(NamesRequest(ContainerId("bogusID")))
     zookeeper <- Free.liftF(startZookeeper)
     names     <- Free.liftF(NamesRequest(zookeeper))
     kafka     <- Free.liftF(
@@ -67,8 +66,8 @@ object Docker extends IOApp.Simple {
                      names.map(_ -> "zookeeper"),
                    )
                  )
-//    _         <- Free.liftF(StopRequest(zookeeper))
-//    _         <- Free.liftF(StopRequest(kafka))
+    _         <- Free.liftF(StopRequest(zookeeper))
+    _         <- Free.liftF(StopRequest(kafka))
   } yield {}
 
   def interpreter[A](client: DockerClient): ManagerRequest[A] => IO[A] = {
