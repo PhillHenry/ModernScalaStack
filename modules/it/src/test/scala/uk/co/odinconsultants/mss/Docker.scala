@@ -46,7 +46,7 @@ object Docker extends IOApp.Simple {
     tree.foldMap(requestToIO)
 
   val freeZookeeper: Free[ManagerRequest, ContainerId] = Free.liftF(
-    StartRequest[Port](
+    StartRequest(
       ImageName("docker.io/bitnami/zookeeper:3.8"),
       Command("/bin/bash -c /entrypoint.sh /opt/bitnami/scripts/zookeeper/run.sh"),
       List("ALLOW_ANONYMOUS_LOGIN=yes"),
@@ -61,7 +61,7 @@ object Docker extends IOApp.Simple {
 
   def interpreter[A](client: DockerClient): ManagerRequest[A] => IO[A] = {
     case StartRequest(image, cmd, env, maps) =>
-      start(client, image, cmd, env, maps.asInstanceOf[Mapping[Port]])
+      start(client, image, cmd, env, maps)
     case StopRequest(containerId)            => IO(stopContainerWithId(client, containerId.toString))
   }
 

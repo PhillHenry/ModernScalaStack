@@ -18,11 +18,11 @@ object Command:
 
 sealed abstract class ManagerRequest[A]
 
-case class StartRequest[A](
+case class StartRequest(
     image: ImageName,
     command: Command,
     env: Environment,
-    mappings: Mapping[A],
+    mappings: Mapping[Int],
 ) extends ManagerRequest[ContainerId]
 
 case class StopRequest(image: ContainerId) extends ManagerRequest[Unit]
