@@ -72,7 +72,7 @@ object DockerMain {
     .withApiVersion(apiVersion)
     .build()
 
-  private def listContainers(dockerClient: DockerClient): List[Container] =
+  def listContainers(dockerClient: DockerClient): List[Container] =
     val containers: Array[Container] = for {
       container <- dockerClient
                      .listContainersCmd()
@@ -80,7 +80,9 @@ object DockerMain {
                      .toArray()
                      .map(_.asInstanceOf[Container])
     } yield {
-      println(s"id = ${container.getId}, image = ${container.getImage}")
+      println(
+        s"id = ${container.getId}, image = ${container.getImage}, names = ${container.getNames.mkString(", ")}"
+      )
       container
     }
     containers.toList

@@ -3,7 +3,7 @@ import cats.effect.{ExitCode, IO, IOApp}
 import cats.free.Free
 import com.github.dockerjava.api.DockerClient
 import com.github.dockerjava.api.command.{CreateContainerCmd, CreateContainerResponse}
-import com.github.dockerjava.api.model.{ExposedPort, Ports}
+import com.github.dockerjava.api.model.{ExposedPort, Link, Ports}
 import com.github.dockerjava.core.{DefaultDockerClientConfig, DockerClientImpl}
 import com.github.dockerjava.httpclient5.ApacheDockerHttpClient
 import uk.co.odinconsultants.mss.DockerMain.*
@@ -45,24 +45,36 @@ object Docker extends IOApp.Simple {
     }
     tree.foldMap(requestToIO)
 
-  val freeZookeeper: Free[ManagerRequest, ContainerId] = Free.liftF(
-    StartRequest(
-      ImageName("docker.io/bitnami/zookeeper:3.8"),
-      Command("/bin/bash -c /entrypoint.sh /opt/bitnami/scripts/zookeeper/run.sh"),
-      List("ALLOW_ANONYMOUS_LOGIN=yes"),
-      List(2181 -> 2181),
-    )
+  val startZookeeper: StartRequest = StartRequest(
+    ImageName("docker.io/bitnami/zookeeper:3.8"),
+    Command("/bin/bash -c /entrypoint.sh /opt/bitnami/scripts/zookeeper/run.sh"),
+    List("ALLOW_ANONYMOUS_LOGIN=yes"),
+    List(2181 -> 2181),
+    List.empty,
   )
 
   def buildFree: Free[ManagerRequest, Unit] = for {
-    zookeeper <- freeZookeeper
-    stop      <- Free.liftF(StopRequest(zookeeper))
+    zookeeper <- Free.liftF(startZookeeper)
+    names     <- Free.liftF(NamesRequest(zookeeper))
+    kafka     <- Free.liftF(
+                   StartRequest(
+                     ImageName("bitnami/kafka:latest"),
+                     Command("/bin/bash -c /opt/bitnami/scripts/kafka/entrypoint.sh /run.sh"),
+                     List("KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181", "ALLOW_PLAINTEXT_LISTENER=yes"),
+                     List(9092 -> 9092),
+                     names.map(_ -> "zookeeper"),
+                   )
+                 )
+    _         <- Free.liftF(StopRequest(zookeeper))
+    _         <- Free.liftF(StopRequest(kafka))
   } yield {}
 
   def interpreter[A](client: DockerClient): ManagerRequest[A] => IO[A] = {
-    case StartRequest(image, cmd, env, maps) =>
-      start(client, image, cmd, env, maps)
-    case StopRequest(containerId)            => IO(stopContainerWithId(client, containerId.toString))
+    case StartRequest(image, cmd, env, ports, dns) =>
+      start(client, image, cmd, env, ports, dns)
+    case StopRequest(containerId)                  => IO(stopContainerWithId(client, containerId.toString))
+    case NamesRequest(containerId)                 =>
+      IO(listContainers(client).filter(_.getId == containerId.toString).flatMap(_.getNames))
   }
 
   def start(
@@ -70,7 +82,8 @@ object Docker extends IOApp.Simple {
       image: ImageName,
       command: Command,
       environment: Environment,
-      portMappings: Mapping[Port],
+      portMappings: NetworkMapping[Port],
+      dnsMappings: DnsMapping[String],
   ): IO[ContainerId] = IO {
     import scala.jdk.CollectionConverters.*
 
@@ -83,7 +96,7 @@ object Docker extends IOApp.Simple {
       .withCmd(command.toString.split(" ").toList.asJava)
 
     val portBindings                       = new Ports
-    val exposedPorts                       = for {
+    val exposedPorts: List[ExposedPort]    = for {
       (container, host) <- portMappings
     } yield {
       val exposed: ExposedPort = ExposedPort.tcp(container)
@@ -94,7 +107,8 @@ object Docker extends IOApp.Simple {
       .withExposedPorts(exposedPorts.asJava)
       .withHostConfig(config.getHostConfig.withPortBindings(portBindings))
       .exec
-
+    val links: Seq[Link]                   = dnsMappings.map { case (name, alias) => new Link(name, alias) }
+    config.getHostConfig.setLinks(links.toList*)
     // start the container
     dockerClient.startContainerCmd(container.getId).exec
     ContainerId(container.getId)

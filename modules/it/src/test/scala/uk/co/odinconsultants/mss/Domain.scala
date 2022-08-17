@@ -4,8 +4,9 @@ opaque type ImageName     = String
 opaque type ConnectionURL = String
 opaque type ContainerId   = String
 opaque type Command       = String
+type DnsMapping[T]        = List[(T, T)]
+type NetworkMapping[T]    = List[(T, T)]
 type Environment          = List[String]
-type Mapping[T]           = List[(T, T)]
 
 object ConnectionURL:
   def apply(x: String): ConnectionURL = x
@@ -22,9 +23,11 @@ case class StartRequest(
     image: ImageName,
     command: Command,
     env: Environment,
-    mappings: Mapping[Int],
+    networkMappings: NetworkMapping[Int],
+    dnsMappings: DnsMapping[String],
 ) extends ManagerRequest[ContainerId]
 
-case class StopRequest(image: ContainerId) extends ManagerRequest[Unit]
+case class StopRequest(containerId: ContainerId)  extends ManagerRequest[Unit]
+case class NamesRequest(containerId: ContainerId) extends ManagerRequest[List[String]]
 
 object Domain {}
